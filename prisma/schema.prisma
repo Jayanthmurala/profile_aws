@@ -1,0 +1,241 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [citext]
+}
+
+model Profile {
+  id             String       @id @default(cuid())
+  userId         String       @unique
+  name           String? // Editable display name (separate from auth displayName)
+  bio            String?
+  skills         String[] // For students
+  expertise      String[] // For faculty
+  linkedIn       String?
+  github         String? // For students
+  twitter        String? // For faculty
+  resumeUrl      String? // For students
+  avatar         String?
+  contactInfo    String?
+  phoneNumber    String?
+  alternateEmail String? // For students
+  experiences    Experience[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  publications     Publication[]
+  personalProjects PersonalProject[]
+  studentBadges    StudentBadge[]
+}
+
+model Experience {
+  id          String   @id @default(cuid())
+  profileId   String
+  userId      String   // Add userId for direct relation
+  title       String   // Job title
+  company     String   // Company name
+  location    String?  // Job location
+  description String?  // Job description
+  startDate   DateTime // Start date
+  endDate     DateTime? // End date (null if current)
+  isCurrent   Boolean  @default(false) // Is this current job
+  type        String   // INTERNSHIP, FULL_TIME, PART_TIME, CONTRACT, FREELANCE
+  // Legacy fields for backward compatibility
+  area        String?  // AI, IoT, Machine Learning, etc.
+  level       String?  // Beginner, Intermediate, Advanced, Expert
+  yearsExp    Int?     // years of experience in this area
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([userId])
+}
+
+model Publication {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  authors     String[] // Array of author names
+  journal     String?  // Journal name
+  conference  String?  // Conference name
+  publishedAt DateTime? // Publication date
+  doi         String?  // Digital Object Identifier
+  url         String?  // Publication URL
+  type        String   // JOURNAL, CONFERENCE, WORKSHOP, PREPRINT
+  // Legacy fields for backward compatibility
+  link        String?  // Legacy URL field
+  year        Int?     // Legacy year field
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([publishedAt])
+  @@index([type])
+}
+
+model PersonalProject {
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  description  String
+  technologies String[] // Array of technologies used
+  githubUrl    String?  // GitHub repository URL
+  liveUrl      String?  // Live demo URL
+  imageUrl     String?  // Project image URL
+  startDate    DateTime? // Project start date
+  endDate      DateTime? // Project end date
+  isVisible    Boolean  @default(true) // Whether project is visible to others
+  // Legacy fields for backward compatibility
+  github       String?  // Legacy GitHub field
+  demoLink     String?  // Legacy demo link field
+  image        String?  // Legacy image field
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isVisible])
+}
+
+// Badge definition catalog
+model BadgeDefinition {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  icon        String?
+  color       String?
+  category    String? // LEADERSHIP, TECHNICAL, COMMUNITY, RESEARCH, PRESENTATION, COLLABORATION, INNOVATION, IMPACT
+  rarity      String // COMMON, RARE, EPIC, LEGENDARY
+  criteria    String?
+  points      Int      @default(10)
+  isActive    Boolean  @default(true)
+  collegeId   String? // null = global badge, otherwise college-specific
+  createdAt   DateTime @default(now())
+  createdBy   String?
+
+  awards StudentBadge[]
+
+  @@unique([name, collegeId])
+}
+
+// Awarded badges to students
+model StudentBadge {
+  id            String   @id @default(cuid())
+  studentId     String
+  badgeId       String
+  awardedBy     String
+  awardedByName String?
+  reason        String
+  awardedAt     DateTime @default(now())
+  projectId     String?
+  eventId       String?
+
+  // relations
+  badge   BadgeDefinition @relation(fields: [badgeId], references: [id])
+  student Profile         @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+
+  @@unique([badgeId, studentId]) // One badge per user
+  @@index([studentId])
+  @@index([badgeId])
+  @@index([awardedBy])
+  @@index([awardedAt])
+}
+
+// Badge policies for event creation eligibility
+model BadgePolicy {
+  id                    String   @id @default(cuid())
+  collegeId             String   @unique
+  departmentId          String?
+  eventCreationRequired Int      @default(8) // badges required for event creation
+  categoryDiversityMin  Int      @default(4) // minimum categories required
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("badge_policies")
+}
+
+// Cache for badge eligibility to avoid repeated calculations
+model BadgeEligibilityCache {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  canCreate   Boolean  @default(false)
+  badgeCount  Int      @default(0)
+  categories  String[] // categories covered
+  lastChecked DateTime @default(now())
+  expiresAt   DateTime
+
+  @@map("badge_eligibility_cache")
+}
+
+// Admin audit logging for profile service
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  adminId     String   // Who performed the action
+  action      String   // What action was performed (CREATE_BADGE, AWARD_BADGE, EDIT_PROFILE, etc.)
+  targetType  String   // Profile, Badge, Publication, Project, etc.
+  targetId    String?  // ID of the target resource
+  details     Json?    // Additional action details
+  ipAddress   String?  // Admin's IP address
+  userAgent   String?  // Admin's user agent
+  collegeId   String   // College scope for filtering
+  success     Boolean  @default(true) // Whether the action succeeded
+  errorMessage String? // Error message if action failed
+  createdAt   DateTime @default(now())
+  
+  @@index([adminId, createdAt])
+  @@index([collegeId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+}
+
+// Profile moderation and approval workflow
+model ProfileModeration {
+  id          String   @id @default(cuid())
+  profileId   String   
+  userId      String   // Profile owner
+  moderatorId String?  // Admin who reviewed
+  status      String   // PENDING, APPROVED, REJECTED
+  contentType String   // BIO, PROJECT, PUBLICATION, EXPERIENCE
+  contentId   String?  // ID of specific content being moderated
+  reason      String?  // Reason for rejection or notes
+  submittedAt DateTime @default(now())
+  reviewedAt  DateTime?
+  
+  @@index([profileId, status])
+  @@index([userId, status])
+  @@index([moderatorId])
+  @@index([status, submittedAt])
+}
+
+// College-specific profile requirements
+model ProfileRequirements {
+  id                String   @id @default(cuid())
+  collegeId         String   @unique
+  requireBio        Boolean  @default(false)
+  requireSkills     Boolean  @default(false)
+  minSkillCount     Int      @default(0)
+  requireProjects   Boolean  @default(false)
+  minProjectCount   Int      @default(0)
+  requireExperience Boolean  @default(false)
+  requireResume     Boolean  @default(false)
+  requireSocialLinks Boolean @default(false)
+  enforceForNetwork Boolean  @default(true)
+  enforceForEvents  Boolean  @default(true)
+  enforceForProjects Boolean @default(true)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("profile_requirements")
+}
