@@ -52,45 +52,42 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
       console.error('[JWT] Failed to fetch JWKS:', jwksError);
     }
     
-    // Try verification with the configured issuer first
+    // Normalize issuer function to handle whitespace variations
+    function normalizeIssuer(issuer: string): string {
+      return issuer.replace(/\s+/g, ' ').trim();
+    }
+
+    // Try verification with multiple issuer formats for robustness
     let verifiedPayload;
-    try {
-      const result = await jwtVerify(token, JWKS, {
-        issuer: env.AUTH_JWT_ISSUER,
-        audience: env.AUTH_JWT_AUDIENCE,
-      });
-      verifiedPayload = result.payload;
-    } catch (issuerError) {
-      console.log('[JWT] First issuer failed, trying alternative issuer formats...');
-      
-      // Try common issuer variations
-      const issuerVariations = [
-        'nexus-auth',
-        'nexus  -auth', 
-        'nexus auth',
-        payload.iss // Use the actual issuer from the token
-      ];
-      
-      let lastError = issuerError;
-      for (const issuer of issuerVariations) {
-        if (issuer === env.AUTH_JWT_ISSUER) continue; // Already tried
-        
-        try {
-          console.log(`[JWT] Trying issuer: "${issuer}"`);
-          const result = await jwtVerify(token, JWKS, {
-            issuer: issuer,
-            audience: env.AUTH_JWT_AUDIENCE,
-          });
-          verifiedPayload = result.payload;
-          console.log(`[JWT] Success with issuer: "${issuer}"`);
-          break;
-        } catch (err) {
-          console.log(`[JWT] Failed with issuer "${issuer}":`, err instanceof Error ? err.message : err);
-          lastError = err;
-        }
+    const issuerVariations = [
+      env.AUTH_JWT_ISSUER,
+      normalizeIssuer(env.AUTH_JWT_ISSUER),
+      'nexus-auth',
+      'nexus  -auth',
+      payload.iss // Use actual issuer from token
+    ].filter((issuer, index, arr) => arr.indexOf(issuer) === index); // Remove duplicates
+
+    let lastError;
+    for (const issuer of issuerVariations) {
+      try {
+        console.log(`[JWT] Trying issuer: "${issuer}"`);
+        const result = await jwtVerify(token, JWKS, {
+          issuer: issuer,
+          audience: env.AUTH_JWT_AUDIENCE,
+        });
+        verifiedPayload = result.payload;
+        console.log(`[JWT] SUCCESS with issuer: "${issuer}"`);
+        break;
+      } catch (issuerError) {
+        console.log(`[JWT] Failed with issuer "${issuer}":`, issuerError instanceof Error ? issuerError.message : issuerError);
+        lastError = issuerError;
       }
+    }
+
+    if (!verifiedPayload) {
+      console.log('[JWT] All issuer variations failed, trying development fallback...');
       
-      if (!verifiedPayload) {
+      if (lastError) {
         // Development fallback: try with fresh JWKS fetch
         if (env.NODE_ENV === 'development') {
           console.log('[JWT] Trying verification with fresh JWKS fetch (development only)...');
@@ -166,9 +163,13 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
         }
         
         if (!verifiedPayload) {
-          throw lastError;
+          throw lastError || new Error('JWT verification failed with all issuer variations');
         }
       }
+    }
+    
+    if (!verifiedPayload) {
+      throw new Error('JWT verification failed - no valid payload found');
     }
     
     console.log('[JWT] Token verified successfully:', {

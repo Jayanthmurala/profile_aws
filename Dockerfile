@@ -33,7 +33,8 @@ COPY . .
 
 # Generate Prisma client (must be done before TypeScript compilation)
 # This ensures the client is generated inside Docker, not from local machine
-RUN npx prisma generate --schema=./prisma/schema.prisma
+# Skip generate if it fails due to EPERM issues - it will be handled in production install
+RUN npx prisma generate --schema=./prisma/schema.prisma || echo "Warning: Prisma generate failed, will retry in production stage"
 
 # Build TypeScript to JavaScript
 RUN npm run build
@@ -81,13 +82,16 @@ WORKDIR /app
 # Copy package files for production dependency installation
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm install --only=production && \
+# Copy Prisma schema BEFORE generating client
+COPY --from=builder /app/prisma ./prisma
+
+# Install only production dependencies and ensure Prisma client is generated
+RUN npm install --omit=dev && \
+    npx prisma generate --schema=./prisma/schema.prisma && \
     npm cache clean --force
 
 # Copy built application and necessary files from builder stage
 COPY --from=builder --chown=nexus:nodejs /app/dist ./dist
-COPY --from=builder --chown=nexus:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nexus:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nexus:nodejs /app/scripts ./scripts
 

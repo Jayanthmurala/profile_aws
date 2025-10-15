@@ -13,10 +13,10 @@ export const env = {
   PORT: Number(process.env.PORT ?? 4002),
   DATABASE_URL: requireEnv("DATABASE_URL"),
 
-  AUTH_JWKS_URL: process.env.AUTH_JWKS_URL ?? "http://localhost:4001/.well-known/jwks.json",
-  AUTH_JWT_ISSUER: process.env.AUTH_JWT_ISSUER ?? "nexus-auth",
+  AUTH_JWKS_URL: process.env.AUTH_JWKS_URL ?? "https://authaws-production.up.railway.app/.well-known/jwks.json",
+  AUTH_JWT_ISSUER: process.env.AUTH_JWT_ISSUER ?? "nexus  -auth",
   AUTH_JWT_AUDIENCE: process.env.AUTH_JWT_AUDIENCE ?? "nexus",
-  AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL ?? "http://localhost:4001",
+  AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL ?? "https://authaws-production.up.railway.app",
   
   NETWORK_SERVICE_URL: process.env.NETWORK_SERVICE_URL ?? "http://localhost:4005",
   BADGE_AUTO_POST_ENABLED: process.env.BADGE_AUTO_POST_ENABLED !== "false",

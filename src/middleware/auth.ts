@@ -41,7 +41,7 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
       id: String(payload.sub),
       email: payload.email || "",
       roles: payload.roles || [],
-      displayName: payload.name,
+      displayName: (payload.displayName as string) || (payload as any).name || "",
     };
     
     console.log('[Auth] User authenticated successfully:', {

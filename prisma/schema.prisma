@@ -36,15 +36,15 @@ model Profile {
 model Experience {
   id          String   @id @default(cuid())
   profileId   String
-  userId      String   // Add userId for direct relation
-  title       String   // Job title
-  company     String   // Company name
+  userId      String?  // Add userId for direct relation - nullable for existing data
+  title       String?  // Job title - nullable for existing data
+  company     String?  // Company name - nullable for existing data
   location    String?  // Job location
   description String?  // Job description
-  startDate   DateTime // Start date
+  startDate   DateTime? // Start date - nullable for existing data
   endDate     DateTime? // End date (null if current)
   isCurrent   Boolean  @default(false) // Is this current job
-  type        String   // INTERNSHIP, FULL_TIME, PART_TIME, CONTRACT, FREELANCE
+  type        String?  // INTERNSHIP, FULL_TIME, PART_TIME, CONTRACT, FREELANCE - nullable for existing data
   // Legacy fields for backward compatibility
   area        String?  // AI, IoT, Machine Learning, etc.
   level       String?  // Beginner, Intermediate, Advanced, Expert
@@ -68,12 +68,12 @@ model Publication {
   publishedAt DateTime? // Publication date
   doi         String?  // Digital Object Identifier
   url         String?  // Publication URL
-  type        String   // JOURNAL, CONFERENCE, WORKSHOP, PREPRINT
+  type        String?  // JOURNAL, CONFERENCE, WORKSHOP, PREPRINT - nullable for existing data
   // Legacy fields for backward compatibility
   link        String?  // Legacy URL field
   year        Int?     // Legacy year field
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt // Add default for existing data
 
   profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
@@ -99,7 +99,7 @@ model PersonalProject {
   demoLink     String?  // Legacy demo link field
   image        String?  // Legacy image field
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime @default(now()) @updatedAt // Add default for existing data
 
   profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
