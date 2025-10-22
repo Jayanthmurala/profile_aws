@@ -605,10 +605,10 @@ export default async function profileRoutes(app: FastifyInstance) {
       responseTime: Date.now() - startTime
     }, 'Profile updated successfully');
 
-    // Enhance response with avatarUrl if it was updated in auth service
+    // Always include avatarUrl from profile data for frontend display
     const responseProfile = { ...updatedProfile };
-    if (avatarUrl && authServiceUpdated) {
-      responseProfile.avatarUrl = avatarUrl;
+    if (updatedProfile.avatar) {
+      responseProfile.avatarUrl = updatedProfile.avatar;
     }
 
     return reply.send({ 
