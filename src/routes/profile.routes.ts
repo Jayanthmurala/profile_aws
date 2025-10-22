@@ -311,8 +311,8 @@ export default async function profileRoutes(app: FastifyInstance) {
         userId,
         name: safeProfile.name || userInfo?.displayName || '',
         displayName: userInfo?.displayName || safeProfile.name || '',
-        // Remove sensitive data from response
-        avatarUrl: userInfo?.avatarUrl || '',
+        // Use profile service avatar as primary source
+        avatarUrl: safeProfile.avatar || userInfo?.avatarUrl || '',
         bio: safeProfile.bio || '',
         skills: Array.isArray(safeProfile.skills) ? safeProfile.skills : [],
         expertise: Array.isArray(safeProfile.expertise) ? safeProfile.expertise : [],
@@ -714,14 +714,14 @@ export default async function profileRoutes(app: FastifyInstance) {
       });
     }
 
-    // Combine profile and user data (use auth service avatarUrl as primary source)
+    // Combine profile and user data (use profile service avatar as primary source)
     const enhancedProfile = {
       id: profile?.id || '',
       userId,
       name: (profile as any)?.name || userInfo?.displayName || '',
       displayName: userInfo?.displayName || '',
       email: userInfo?.email || '',
-      avatarUrl: userInfo?.avatarUrl || '',
+      avatarUrl: (profile as any)?.avatar || userInfo?.avatarUrl || '',
       bio: (profile as any)?.bio || '',
       skills: (profile as any)?.skills || [],
       expertise: (profile as any)?.expertise || [],
@@ -2803,7 +2803,7 @@ export default async function profileRoutes(app: FastifyInstance) {
             return {
               ...profile,
               displayName: userData?.displayName || profile.name,
-              avatarUrl: userData?.avatarUrl || profile.avatar,
+              avatarUrl: profile.avatar || userData?.avatarUrl,
               department: userData?.department,
               year: userData?.year,
               collegeId: userData?.collegeId,
@@ -2967,7 +2967,7 @@ export default async function profileRoutes(app: FastifyInstance) {
               bio: profile.bio || '',
               skills: profile.skills || [],
               expertise: profile.expertise || [],
-              avatarUrl: userData?.avatarUrl || profile.avatar || '',
+              avatarUrl: profile.avatar || userData?.avatarUrl || '',
               department: userData?.department || '',
               year: userData?.year,
               roles: userData?.roles || [],
