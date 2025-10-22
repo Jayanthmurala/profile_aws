@@ -311,8 +311,8 @@ export default async function profileRoutes(app: FastifyInstance) {
         userId,
         name: safeProfile.name || userInfo?.displayName || '',
         displayName: userInfo?.displayName || safeProfile.name || '',
-        // Use profile service avatar as primary source
-        avatarUrl: safeProfile.avatar || userInfo?.avatarUrl || '',
+        // Use only profile service avatar field
+        avatar: safeProfile.avatar || '',
         bio: safeProfile.bio || '',
         skills: Array.isArray(safeProfile.skills) ? safeProfile.skills : [],
         expertise: Array.isArray(safeProfile.expertise) ? safeProfile.expertise : [],
@@ -605,11 +605,8 @@ export default async function profileRoutes(app: FastifyInstance) {
       responseTime: Date.now() - startTime
     }, 'Profile updated successfully');
 
-    // Always include avatarUrl from profile data for frontend display
+    // Return updated profile with avatar field only
     const responseProfile = { ...updatedProfile };
-    if (updatedProfile.avatar) {
-      responseProfile.avatarUrl = updatedProfile.avatar;
-    }
 
     return reply.send({ 
       success: true,
@@ -721,7 +718,7 @@ export default async function profileRoutes(app: FastifyInstance) {
       name: (profile as any)?.name || userInfo?.displayName || '',
       displayName: userInfo?.displayName || '',
       email: userInfo?.email || '',
-      avatarUrl: (profile as any)?.avatar || userInfo?.avatarUrl || '',
+      avatar: (profile as any)?.avatar || '',
       bio: (profile as any)?.bio || '',
       skills: (profile as any)?.skills || [],
       expertise: (profile as any)?.expertise || [],
@@ -2803,7 +2800,7 @@ export default async function profileRoutes(app: FastifyInstance) {
             return {
               ...profile,
               displayName: userData?.displayName || profile.name,
-              avatarUrl: profile.avatar || userData?.avatarUrl,
+              avatar: profile.avatar || '',
               department: userData?.department,
               year: userData?.year,
               collegeId: userData?.collegeId,
@@ -2816,7 +2813,7 @@ export default async function profileRoutes(app: FastifyInstance) {
             return {
               ...profile,
               displayName: profile.name,
-              avatarUrl: profile.avatar,
+              avatar: profile.avatar,
               badgeCount: profile._count.studentBadges,
               projectCount: profile._count.personalProjects,
               experienceCount: profile._count.experiences
@@ -2967,7 +2964,7 @@ export default async function profileRoutes(app: FastifyInstance) {
               bio: profile.bio || '',
               skills: profile.skills || [],
               expertise: profile.expertise || [],
-              avatarUrl: profile.avatar || userData?.avatarUrl || '',
+              avatar: profile.avatar || '',
               department: userData?.department || '',
               year: userData?.year,
               roles: userData?.roles || [],
