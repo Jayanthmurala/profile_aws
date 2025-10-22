@@ -501,10 +501,43 @@ export default async function profileRoutes(app: FastifyInstance) {
       const requestingUserId = req.user?.sub || req.user?.id;
       const isOwnProfile = requestingUserId === userId;
       
+      req.log.info({ 
+        requestingUserId, 
+        targetUserId: userId, 
+        isOwnProfile,
+        userObject: req.user 
+      }, 'Auth Service update permission check');
+      
       if (isOwnProfile) {
         try {
+          const authHeader = req.headers.authorization || '';
+          // Decode token to check user ID match
+          let tokenUserId = null;
+          try {
+            if (authHeader.startsWith('Bearer ')) {
+              const token = authHeader.substring(7);
+              const parts = token.split('.');
+              if (parts.length === 3) {
+                const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+                tokenUserId = payload.sub || payload.id || payload.userId;
+              }
+            }
+          } catch (e) {
+            req.log.warn('Failed to decode JWT token');
+          }
+          
+          req.log.info({ 
+            authHeaderPresent: !!authHeader,
+            authHeaderLength: authHeader.length,
+            authHeaderPrefix: authHeader.substring(0, 20) + '...',
+            tokenUserId,
+            targetUserId: userId,
+            tokenUserIdMatches: tokenUserId === userId,
+            avatarUrl 
+          }, 'Sending request to Auth Service');
+          
           const success = await Promise.race([
-            AuthServiceClient.updateUser(userId, { avatarUrl }, req.headers.authorization || ''),
+            AuthServiceClient.updateUser(userId, { avatarUrl }, authHeader),
             new Promise<boolean>((_, reject) => 
               setTimeout(() => reject(new Error('Auth service update timeout')), 5000)
             )
