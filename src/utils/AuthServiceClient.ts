@@ -171,7 +171,11 @@ export class AuthServiceClient {
    */
   static async updateUser(userId: string, updateData: Partial<AuthUser>, authHeader: string): Promise<boolean> {
     try {
-      await axios.put(`${this.baseUrl}/v1/users/${userId}`, 
+      console.log(`[AuthServiceClient] Updating user ${userId} at ${this.baseUrl}/v1/users/${userId}`);
+      console.log(`[AuthServiceClient] Update data:`, updateData);
+      console.log(`[AuthServiceClient] Auth header:`, authHeader ? `${authHeader.substring(0, 20)}...` : 'MISSING');
+      
+      const response = await axios.put(`${this.baseUrl}/v1/users/${userId}`, 
         updateData,
         {
           headers: {
@@ -180,9 +184,22 @@ export class AuthServiceClient {
           timeout: this.timeout,
         }
       );
+      
+      console.log(`[AuthServiceClient] Update successful: ${response.status}`);
       return true;
     } catch (error) {
       console.error('[AuthServiceClient] Failed to update user data:', error);
+      
+      if (axios.isAxiosError(error)) {
+        console.error(`[AuthServiceClient] Status: ${error.response?.status}`);
+        console.error(`[AuthServiceClient] Response:`, error.response?.data);
+        console.error(`[AuthServiceClient] Headers:`, error.response?.headers);
+        
+        if (error.response?.status === 403) {
+          console.error('[AuthServiceClient] 403 FORBIDDEN - Token may be invalid or insufficient permissions');
+        }
+      }
+      
       return false;
     }
   }

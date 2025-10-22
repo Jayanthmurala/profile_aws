@@ -495,26 +495,39 @@ export default async function profileRoutes(app: FastifyInstance) {
     }
     
     // Try to update avatarUrl in auth service, but don't fail if it doesn't work
+    let authServiceUpdated = false;
     if (avatarUrl) {
-      try {
-        const success = await Promise.race([
-          AuthServiceClient.updateUser(userId, { avatarUrl }, req.headers.authorization || ''),
-          new Promise<boolean>((_, reject) => 
-            setTimeout(() => reject(new Error('Auth service update timeout')), 5000)
-          )
-        ]);
-        
-        if (success) {
-          req.log.info({ userId, avatarUrl }, 'Successfully updated avatarUrl in auth service');
-        } else {
-          req.log.warn({ userId, avatarUrl }, 'Failed to update avatarUrl in auth service, continuing with profile update');
+      // SECURITY: Only update Auth Service if the user is updating their own profile
+      const requestingUserId = req.user?.sub || req.user?.id;
+      const isOwnProfile = requestingUserId === userId;
+      
+      if (isOwnProfile) {
+        try {
+          const success = await Promise.race([
+            AuthServiceClient.updateUser(userId, { avatarUrl }, req.headers.authorization || ''),
+            new Promise<boolean>((_, reject) => 
+              setTimeout(() => reject(new Error('Auth service update timeout')), 5000)
+            )
+          ]);
+          
+          if (success) {
+            authServiceUpdated = true;
+            req.log.info({ userId, avatarUrl }, 'Successfully updated avatarUrl in auth service');
+          } else {
+            req.log.warn({ userId, avatarUrl }, 'Failed to update avatarUrl in auth service, continuing with profile update');
+          }
+        } catch (authError) {
+          req.log.warn({ 
+            error: authError instanceof Error ? authError.message : 'Unknown error',
+            userId,
+            avatarUrl 
+          }, 'Auth service unavailable for avatar update, continuing with profile update');
         }
-      } catch (authError) {
-        req.log.warn({ 
-          error: authError instanceof Error ? authError.message : 'Unknown error',
-          userId,
-          avatarUrl 
-        }, 'Auth service unavailable for avatar update, continuing with profile update');
+      } else {
+        req.log.info({ 
+          requestingUserId, 
+          targetUserId: userId 
+        }, 'Skipping Auth Service update - user updating different profile (admin scenario)');
       }
     }
 
@@ -559,10 +572,17 @@ export default async function profileRoutes(app: FastifyInstance) {
       responseTime: Date.now() - startTime
     }, 'Profile updated successfully');
 
+    // Enhance response with avatarUrl if it was updated in auth service
+    const responseProfile = { ...updatedProfile };
+    if (avatarUrl && authServiceUpdated) {
+      responseProfile.avatarUrl = avatarUrl;
+    }
+
     return reply.send({ 
       success: true,
-      profile: updatedProfile,
-      message: 'Profile updated successfully'
+      profile: responseProfile,
+      message: 'Profile updated successfully',
+      authServiceUpdated: authServiceUpdated  // Tell frontend if auth service was updated
     });
 
     } catch (error) {
