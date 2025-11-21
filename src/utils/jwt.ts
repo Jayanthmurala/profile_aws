@@ -47,7 +47,11 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
     try {
       const jwksResponse = await fetch(env.AUTH_JWKS_URL);
       jwksData = await jwksResponse.json();
-      console.log('[JWT] Available JWKS keys:', jwksData.keys.map((k: any) => ({ kid: k.kid, alg: k.alg })));
+      if (jwksData && jwksData.keys && Array.isArray(jwksData.keys)) {
+        console.log('[JWT] Available JWKS keys:', jwksData.keys.map((k: any) => ({ kid: k.kid, alg: k.alg })));
+      } else {
+        console.error('[JWT] JWKS response missing keys array:', jwksData);
+      }
     } catch (jwksError) {
       console.error('[JWT] Failed to fetch JWKS:', jwksError);
     }
@@ -63,7 +67,7 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
       env.AUTH_JWT_ISSUER,
       normalizeIssuer(env.AUTH_JWT_ISSUER),
       'nexus-auth',
-      'nexus  -auth',
+      'nexus-auth',
       payload.iss // Use actual issuer from token
     ].filter((issuer, index, arr) => arr.indexOf(issuer) === index); // Remove duplicates
 
@@ -95,6 +99,12 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
             // Fresh JWKS fetch to bypass cache
             const jwksResponse = await fetch(env.AUTH_JWKS_URL);
             const freshJwksData = await jwksResponse.json();
+            
+            if (!freshJwksData || !freshJwksData.keys || !Array.isArray(freshJwksData.keys)) {
+              console.error('[JWT] Fresh JWKS response invalid:', freshJwksData);
+              throw new Error('Invalid JWKS response - missing keys array');
+            }
+            
             console.log('[JWT] Fresh JWKS keys:', freshJwksData.keys.map((k: any) => ({ kid: k.kid, alg: k.alg })));
             
             if (freshJwksData.keys && freshJwksData.keys.length > 0) {

@@ -31,6 +31,16 @@ model Profile {
   publications     Publication[]
   personalProjects PersonalProject[]
   studentBadges    StudentBadge[]
+
+  // NOTE: department and year are removed - these come from auth-service JWT token
+  // Do NOT store these fields in profile-service to avoid data duplication
+  // Use req.user?.department and req.user?.year from JWT instead
+
+  // PHASE 1 FIX: Add indexes for search performance
+  @@index([name])           // For search by name
+  @@index([bio])            // For search by bio
+  @@index([skills])         // For search by skills array
+  @@index([createdAt])      // For sorting by date
 }
 
 model Experience {

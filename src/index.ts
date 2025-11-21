@@ -15,6 +15,7 @@ import { profileInputSanitizer, addSecurityHeaders } from "./middleware/inputSan
 import { requestLoggingMiddleware } from "./middleware/requestLogger.js";
 import { GracefulShutdown, MemoryMonitor } from "./utils/gracefulShutdown.js";
 import { PerformanceMonitor } from "./utils/performanceMonitor.js";
+import { UserSyncService } from "./services/UserSyncService.js";
 
 async function buildServer() {
   console.log('[BUILD] Creating Fastify instance...');
@@ -253,6 +254,16 @@ async function startServer() {
     }
     console.log('[STARTUP] Database connected successfully');
 
+    // PHASE 3: Start user sync service (Redis pub/sub listener)
+    console.log('[STARTUP] Starting user sync service...');
+    try {
+      await UserSyncService.startListening();
+      console.log('[STARTUP] User sync service started');
+    } catch (error) {
+      console.warn('[STARTUP] Failed to start user sync service (non-blocking):', error);
+      // Non-blocking - service can work without sync
+    }
+
     // Build and start the server
     console.log('[STARTUP] Building server...');
     const app = await buildServer();
@@ -269,6 +280,9 @@ async function startServer() {
     const cleanup = async () => {
       console.log('Shutting down server...');
       try {
+        // PHASE 3: Stop user sync service
+        await UserSyncService.stopListening();
+        
         await app.close();
         await disconnectDatabase();
         console.log('Server shutdown complete');
